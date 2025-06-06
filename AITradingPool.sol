@@ -2,9 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-contract AITradingPool {
+contract AITradingPool is ReentrancyGuard {
     IERC20 public usdt;
     address public admin;
     IUniswapV2Router02 public uniswapRouter;
@@ -47,7 +48,7 @@ contract AITradingPool {
         uniswapRouter = IUniswapV2Router02(_uniswapRouter);
     }
 
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be > 0");
         require(usdt.transferFrom(msg.sender, address(this), amount), "USDT transfer failed");
         
@@ -66,7 +67,7 @@ contract AITradingPool {
         emit Deposited(msg.sender, amount);
     }
 
-    function requestWithdraw(uint256 amount) external {
+    function requestWithdraw(uint256 amount) external nonReentrant {
         User storage user = users[msg.sender];
         require(amount <= user.balance, "Insufficient balance");
         
@@ -83,7 +84,7 @@ contract AITradingPool {
         emit WithdrawRequested(msg.sender, amount);
     }
 
-    function startTrade() external onlyAdmin {
+    function startTrade() external onlyAdmin nonReentrant {
         require(!isInTrade, "Already in trade");
         require(totalPoolBalance > 0, "Empty pool");
 
@@ -109,7 +110,7 @@ contract AITradingPool {
         emit TradeStarted(currentTradeId, amountIn);
     }
 
-    function endTrade() external onlyAdmin {
+    function endTrade() external onlyAdmin nonReentrant {
         require(isInTrade, "No active trade");
 
         // Swap ETH back to USDT

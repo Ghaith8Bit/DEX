@@ -2,9 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./LPToken.sol";
 
-contract DEXPair {
+contract DEXPair is ReentrancyGuard {
     address public tokenA;
     address public tokenB;
     LPToken public lpToken;
@@ -31,17 +32,24 @@ contract DEXPair {
         reserveB = IERC20(tokenB).balanceOf(address(this));
     }
 
-    function addLiquidity(uint256 amountA, uint256 amountB) external {
+    event LiquidityAdded(address indexed provider, uint256 amountA, uint256 amountB, uint256 liquidity);
+    event LiquidityRemoved(address indexed provider, uint256 amountA, uint256 amountB, uint256 lpAmount);
+    event Swapped(address indexed sender, address indexed inputToken, address indexed outputToken, uint256 amountIn, uint256 amountOut);
+
+    function addLiquidity(uint256 amountA, uint256 amountB) external nonReentrant {
+        require(amountA > 0 && amountB > 0, "Invalid amounts");
+
         IERC20(tokenA).transferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).transferFrom(msg.sender, address(this), amountB);
 
-        uint256 liquidity = (amountA + amountB);
+        uint256 liquidity = amountA + amountB;
         lpToken.mint(msg.sender, liquidity);
 
         _updateReserves();
+        emit LiquidityAdded(msg.sender, amountA, amountB, liquidity);
     }
 
-    function removeLiquidity(uint256 lpAmount) external {
+    function removeLiquidity(uint256 lpAmount) external nonReentrant {
         require(lpAmount > 0, "Invalid amount");
 
         uint256 totalSupply = lpToken.totalSupply();
@@ -54,9 +62,11 @@ contract DEXPair {
         IERC20(tokenB).transfer(msg.sender, amountB);
 
         _updateReserves();
+        emit LiquidityRemoved(msg.sender, amountA, amountB, lpAmount);
     }
 
-    function swap(address fromToken, uint256 amountIn) external {
+    function swap(address fromToken, uint256 amountIn) external nonReentrant {
+        require(amountIn > 0, "Invalid amount");
         require(fromToken == tokenA || fromToken == tokenB, "Invalid token");
 
         bool isTokenA = fromToken == tokenA;
@@ -74,5 +84,6 @@ contract DEXPair {
 
         IERC20(output).transfer(msg.sender, amountOut);
         _updateReserves();
+        emit Swapped(msg.sender, input, output, amountIn, amountOut);
     }
 }
