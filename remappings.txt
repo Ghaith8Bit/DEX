@@ -1,3 +1,0 @@
-@openzeppelin/=lib/openzeppelin/
-@uniswap/v2-periphery/=test/helpers
-forge-std/=lib/forge-std/src/
