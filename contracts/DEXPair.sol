@@ -2,7 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./LPToken.sol";
 
 contract DEXPair is ReentrancyGuard {
@@ -42,10 +43,24 @@ contract DEXPair is ReentrancyGuard {
         IERC20(tokenA).transferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).transferFrom(msg.sender, address(this), amountB);
 
-        uint256 liquidity = amountA + amountB;
-        lpToken.mint(msg.sender, liquidity);
+        uint256 _reserveA = reserveA;
+        uint256 _reserveB = reserveB;
+        uint256 totalSupply = lpToken.totalSupply();
+
+        uint256 liquidity;
+        if (totalSupply == 0) {
+            liquidity = Math.sqrt(amountA * amountB);
+        } else {
+            liquidity = Math.min(
+                (amountA * totalSupply) / _reserveA,
+                (amountB * totalSupply) / _reserveB
+            );
+        }
+
+        require(liquidity > 0, "Zero liquidity");
 
         _updateReserves();
+        lpToken.mint(msg.sender, liquidity);
         emit LiquidityAdded(msg.sender, amountA, amountB, liquidity);
     }
 
